@@ -75,7 +75,7 @@ func (k Keeper) GetNextPoolNumber(ctx sdk.Context) uint64 {
 
 func (k Keeper) createNewPool(ctx sdk.Context, pool types.Pool, poolShare types.PoolShare) error {
 
-	coins := sdk.Coins{pool.Token_1, pool.Token_2}
+	coins := sdk.Coins{pool.Token1, pool.Token2}
 	err := k.bankKeeper.SendCoins(ctx, pool.GetCreatorAddress(), pool.GetPoolAddress(), coins)
 	if err != nil {
 		return err

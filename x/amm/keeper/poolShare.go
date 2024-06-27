@@ -20,7 +20,7 @@ func (k Keeper) GetPoolShare(ctx sdk.Context, id uint64, address sdk.AccAddress)
 func (k Keeper) SetPoolShare(ctx sdk.Context, poolShare types.PoolShare) {
 	store := ctx.KVStore(k.storeKey)
 	bz := types.MustMarshalPoolShare(k.cdc, &poolShare)
-	store.Set(types.GetPoolKey(poolShare.GetId()), bz)
+	store.Set(poolShare.GetKey(), bz)
 }
 
 func (k Keeper) IterateAllAccountsByPool(ctx sdk.Context, id uint64, function func(poolShare types.PoolShare) (stop bool)) {

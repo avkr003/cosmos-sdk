@@ -3,24 +3,30 @@ package cosmos.amm.v1beta1;
 
 import "gogoproto/gogo.proto";
 import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+import "amino/amino.proto";
 
 option go_package = "github.com/cosmos/cosmos-sdk/x/amm/types";
 
 message Pool {
+  option (gogoproto.equal) = true;
+
   uint64 id = 1;
 
-  cosmos.base.v1beta1.Coin token_1 = 2;
+  cosmos.base.v1beta1.Coin token1 = 2[(gogoproto.nullable) = false];
 
-  cosmos.base.v1beta1.Coin token_2 = 3;
+  cosmos.base.v1beta1.Coin token2 = 3[(gogoproto.nullable) = false];
 
-  string fee = 4 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec"];
+  string fee = 4 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec", (gogoproto.nullable) = false];
 
   string creator = 5;
 
-  string totalShares = 6 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Int"];
+  string totalShares = 6 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Int", (gogoproto.nullable) = false];
 }
 
 message PoolShare {
+  option (gogoproto.equal) = true;
+
   uint64 id = 1;
 
   string address = 2;
@@ -29,6 +35,7 @@ message PoolShare {
 }
 
 message Params {
+  option (amino.name) = "cosmos-sdk/x/amm/Params";
   option (gogoproto.goproto_stringer) = false;
   option (gogoproto.equal) = true;
 

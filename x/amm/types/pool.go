@@ -42,8 +42,8 @@ func (p Pool) GetKey() []byte {
 func NewPool(id uint64, token1, token2 sdk.Coin, fee sdk.Dec, creator sdk.AccAddress, totalShare sdk.Int) Pool {
 	return Pool{
 		Id:          id,
-		Token_1:     token1,
-		Token_2:     token2,
+		Token1:      token1,
+		Token2:      token2,
 		Fee:         fee,
 		Creator:     creator.String(),
 		TotalShares: totalShare,
