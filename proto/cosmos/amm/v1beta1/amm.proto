@@ -9,15 +9,15 @@ option go_package = "github.com/cosmos/cosmos-sdk/x/amm/types";
 message Pool {
   uint64 id = 1;
 
-  cosmos.base.v1beta1.Coin token_1 = 2[(gogoproto.nullable) = false];
+  cosmos.base.v1beta1.Coin token_1 = 2;
 
-  cosmos.base.v1beta1.Coin token_2 = 3 [(gogoproto.nullable) = false];
+  cosmos.base.v1beta1.Coin token_2 = 3;
 
-  string fee = 4 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec", (gogoproto.nullable) = false];
+  string fee = 4 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec"];
 
   string creator = 5;
 
-  string totalShares = 6 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Int", (gogoproto.nullable) = false];
+  string totalShares = 6 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Int"];
 }
 
 message PoolShare {

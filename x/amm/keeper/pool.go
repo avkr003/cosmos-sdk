@@ -83,5 +83,6 @@ func (k Keeper) createNewPool(ctx sdk.Context, pool types.Pool, poolShare types.
 
 	k.SetPool(ctx, pool)
 	k.SetPoolShare(ctx, poolShare)
+	k.SetNextPoolNumber(ctx, pool.GetId()+1)
 	return nil
 }
