@@ -1,0 +1,36 @@
+syntax = "proto3";
+package cosmos.amm.v1beta1;
+
+import "gogoproto/gogo.proto";
+import "cosmos/base/v1beta1/coin.proto";
+
+option go_package = "github.com/cosmos/cosmos-sdk/x/amm/types";
+
+message Pool {
+  uint64 id = 1;
+
+  cosmos.base.v1beta1.Coin token_1 = 2[(gogoproto.nullable) = false];
+
+  cosmos.base.v1beta1.Coin token_2 = 3 [(gogoproto.nullable) = false];
+
+  string fee = 4 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec", (gogoproto.nullable) = false];
+
+  string creator = 5;
+
+  string totalShares = 6 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Int", (gogoproto.nullable) = false];
+}
+
+message PoolShare {
+  uint64 id = 1;
+
+  string address = 2;
+
+  string shares = 3 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Int", (gogoproto.nullable) = false];
+}
+
+message Params {
+  option (gogoproto.goproto_stringer) = false;
+  option (gogoproto.equal) = true;
+
+  uint32 fee_distribution_period = 1;
+}

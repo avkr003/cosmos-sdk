@@ -1,0 +1,28 @@
+syntax = "proto3";
+package cosmos.amm.v1beta1;
+
+import "gogoproto/gogo.proto";
+import "cosmos/amm/v1beta1/amm.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "cosmos/base/v1beta1/coin.proto";
+
+option go_package = "github.com/cosmos/cosmos-sdk/x/amm/types";
+
+service Msg {
+  rpc CreatePool(MsgCreatePoolMessage) returns (MsgCreatePoolResponse);
+
+}
+
+message MsgCreatePoolMessage {
+  option (cosmos.msg.v1.signer) = "from_address";
+  option (gogoproto.equal) = false;
+  option (gogoproto.goproto_getters) = false;
+
+  string   from_address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  cosmos.base.v1beta1.Coin token_1 = 2 [(gogoproto.nullable) = false, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
+  cosmos.base.v1beta1.Coin token_2 = 3 [(gogoproto.nullable) = false, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
+  string fee = 4 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec", (gogoproto.nullable) = false];
+}
+
+message MsgCreatePoolResponse {}

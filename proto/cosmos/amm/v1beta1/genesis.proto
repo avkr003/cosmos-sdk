@@ -1,0 +1,22 @@
+syntax = "proto3";
+package cosmos.amm.v1beta1;
+
+option go_package = "github.com/cosmos/cosmos-sdk/x/amm/types";
+
+import "gogoproto/gogo.proto";
+import "cosmos/amm/v1beta1/amm.proto";
+import "cosmos_proto/cosmos.proto";
+
+// GenesisState defines the amm module's genesis state.
+message GenesisState {
+  // params defines all the parameters of related to deposit.
+  Params params = 1 [(gogoproto.nullable) = false];
+
+  uint64 nextPoolNumber = 2;
+
+  repeated Pool pools = 3 [(gogoproto.nullable) = false];
+
+  repeated PoolShare pool_shares = 4 [(gogoproto.nullable) = false];
+
+}
+
