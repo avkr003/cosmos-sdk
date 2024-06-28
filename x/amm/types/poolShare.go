@@ -22,6 +22,7 @@ func (p *PoolShare) AddShare(toAdd sdk.DecCoin) {
 	coin, found := p.GetShare(toAdd.Denom)
 	if found == -1 {
 		p.Shares = append(p.Shares, toAdd)
+		p.Shares = p.Shares.Sort()
 	} else {
 		p.Shares[found] = coin.Add(toAdd)
 	}
@@ -30,7 +31,15 @@ func (p *PoolShare) AddShare(toAdd sdk.DecCoin) {
 func (p *PoolShare) SubtractShare(toSubtract sdk.DecCoin) error {
 	coin, found := p.GetShare(toSubtract.Denom)
 	if found != -1 {
-		p.Shares[found] = coin.Sub(toSubtract)
+		value := coin.Sub(toSubtract)
+		if value.Amount.LT(sdk.ZeroDec()) {
+			return ErrPoolShareGreater
+		}
+		if value.Equal(sdk.ZeroDec()) {
+			p.Shares = append(p.Shares[:found], p.Shares[found+1:]...)
+		} else {
+			p.Shares[found] = value
+		}
 		return p.Shares[found].Validate()
 	}
 	return ErrLpSharesNotFound

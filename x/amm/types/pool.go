@@ -27,6 +27,34 @@ func (p *Pool) AddTotalShares(v sdk.Dec) {
 	p.TotalShares = p.TotalShares.Add(v)
 }
 
+func (p *Pool) SubtractFromTotalShares(v sdk.Dec) {
+	p.TotalShares = p.TotalShares.Sub(v)
+}
+
+func (p *Pool) AddToToken1(token1 sdk.Coin) {
+	p.Token1 = p.Token1.Add(token1)
+}
+
+func (p *Pool) AddToToken2(token1 sdk.Coin) {
+	p.Token2 = p.Token2.Add(token1)
+}
+
+func (p *Pool) SubtractFromToken1(token1 sdk.Coin) (err error) {
+	p.Token1, err = p.Token1.SafeSub(token1)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *Pool) SubtractFromToken2(token2 sdk.Coin) (err error) {
+	p.Token2, err = p.Token2.SafeSub(token2)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (p Pool) GetCreatorAddress() sdk.AccAddress {
 	return sdk.MustAccAddressFromBech32(p.Creator)
 }

@@ -20,8 +20,8 @@ import (
 const ConsensusVersion = 1
 
 var (
-	_ module.BeginBlockAppModule = AppModule{}
-	_ module.AppModuleBasic      = AppModuleBasic{}
+	_ module.AppModule      = AppModule{}
+	_ module.AppModuleBasic = AppModuleBasic{}
 )
 
 type AppModuleBasic struct {
@@ -98,10 +98,6 @@ func (a AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.RawM
 func (a AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterQueryServer(cfg.QueryServer(), a.keeper)
 	types.RegisterMsgServer(cfg.MsgServer(), a.keeper)
-}
-
-func (a AppModule) BeginBlock(context sdk.Context, block abci.RequestBeginBlock) {
-	BeginBlocker(context, block, a.keeper)
 }
 
 func NewAppModule(cdc codec.Codec, keeper keeper.Keeper, bankKeeper types.BankKeeper) AppModule {
