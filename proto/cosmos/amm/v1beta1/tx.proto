@@ -12,17 +12,61 @@ option go_package = "github.com/cosmos/cosmos-sdk/x/amm/types";
 service Msg {
   rpc CreatePool(MsgCreatePoolMessage) returns (MsgCreatePoolResponse);
 
+  rpc JoinPool(MsgJoinPoolMessage) returns (MsgJoinPoolResponse);
+
+  rpc Swap(MsgSwapMessage) returns (MsgSwapResponse);
+
+  rpc ExitPool(MsgExitPoolMessage) returns (MsgExitPoolResponse);
+
 }
 
 message MsgCreatePoolMessage {
-  option (cosmos.msg.v1.signer) = "from_address";
+  option (cosmos.msg.v1.signer) = "from";
   option (gogoproto.equal) = false;
   option (gogoproto.goproto_getters) = false;
 
-  string   from_address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
-  cosmos.base.v1beta1.Coin token_1 = 2 [(gogoproto.nullable) = false, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
-  cosmos.base.v1beta1.Coin token_2 = 3 [(gogoproto.nullable) = false, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
-  string fee = 4 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec", (gogoproto.nullable) = false];
+  string from = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 poolId = 2;
+  cosmos.base.v1beta1.Coin token1 = 3 [(gogoproto.nullable) = false, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
+  cosmos.base.v1beta1.Coin token2 = 4 [(gogoproto.nullable) = false, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
+  string fee = 5 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec", (gogoproto.nullable) = false];
 }
 
 message MsgCreatePoolResponse {}
+
+message MsgJoinPoolMessage {
+  option (cosmos.msg.v1.signer) = "from";
+  option (gogoproto.equal) = false;
+  option (gogoproto.goproto_getters) = false;
+
+  string from = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 poolId = 2;
+  cosmos.base.v1beta1.Coin token = 3 [(gogoproto.nullable) = false, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
+}
+
+message MsgJoinPoolResponse {}
+
+message MsgSwapMessage {
+  option (cosmos.msg.v1.signer) = "from";
+  option (gogoproto.equal) = false;
+  option (gogoproto.goproto_getters) = false;
+
+  string from = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 poolId = 2;
+  cosmos.base.v1beta1.Coin token = 3 [(gogoproto.nullable) = false, (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"];
+}
+
+message MsgSwapResponse {}
+
+message MsgExitPoolMessage {
+  option (cosmos.msg.v1.signer) = "from";
+  option (gogoproto.equal) = false;
+  option (gogoproto.goproto_getters) = false;
+
+  string from = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 poolId = 2;
+  string lpShare = 3 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec", (gogoproto.nullable) = false];
+  bool withdrawAll = 4;
+}
+
+message MsgExitPoolResponse {}

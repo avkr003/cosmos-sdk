@@ -6,32 +6,24 @@ import "gogoproto/gogo.proto";
 import "google/api/annotations.proto";
 import "cosmos/amm/v1beta1/amm.proto";
 import "cosmos_proto/cosmos.proto";
+import "amino/amino.proto";
 
 option go_package = "github.com/cosmos/cosmos-sdk/x/amm/types";
 
 service Query {
 
   rpc Pool(QueryPoolRequest) returns (QueryPoolResponse) {
-    option (google.api.http).get = "/cosmos/amm/v1beta1/allPools";
+    option (google.api.http).get = "/cosmos/amm/v1beta1/pool/{poolId}";
+  }
+
+  rpc PoolShares(QueryPoolSharesRequest) returns (QueryPoolSharesResponse) {
+    option (google.api.http).get = "/cosmos/amm/v1beta1/poolShare/{address}";
   }
 
   rpc Parameters(QueryParametersRequest) returns (QueryParametersResponse) {
     option (google.api.http).get = "/cosmos/amm/v1beta1/parameters";
   }
 }
-
-// QueryValidatorsRequest is request type for Query/Validators RPC method.
-//message QueryAddressRequest {
-//  string address = 1;
-//}
-
-// QueryValidatorsResponse is response type for the Query/Validators RPC method
-//message QueryAddressResponse {
-//  // validators contains all the queried validators.
-//  UserMessage user_message = 1 [(gogoproto.nullable) = false];
-//
-//}
-
 
 message QueryPoolRequest {
   uint64 poolId = 1;
@@ -40,6 +32,20 @@ message QueryPoolRequest {
 message QueryPoolResponse {
   Pool pool = 1 [(gogoproto.nullable) = false];
 }
+
+message QueryPoolSharesRequest {
+  string address = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+message QueryPoolSharesResponse {
+
+  repeated PoolShare poolShares = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+
+}
+
 
 message QueryParametersRequest {}
 

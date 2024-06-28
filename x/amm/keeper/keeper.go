@@ -3,6 +3,7 @@ package keeper
 import (
 	"github.com/cometbft/cometbft/libs/log"
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/store/prefix"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/amm/types"
@@ -39,4 +40,9 @@ func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 
 func (k Keeper) GetAuthority() string {
 	return k.authority
+}
+
+func (k Keeper) getAccountPoolShareStore(ctx sdk.Context, address sdk.AccAddress) prefix.Store {
+	store := ctx.KVStore(k.storeKey)
+	return prefix.NewStore(store, types.GetPoolShareKey(address))
 }

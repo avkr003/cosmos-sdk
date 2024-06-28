@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/amm/types"
 	"github.com/spf13/cobra"
 	"strconv"
@@ -22,6 +23,7 @@ func GetQueryCmd() *cobra.Command {
 	authorizationQueryCmd.AddCommand(
 		GetCmdQueryParams(),
 		GetCmdQueryPool(),
+		GetCmdQueryPoolShares(),
 	)
 
 	return authorizationQueryCmd
@@ -80,6 +82,41 @@ func GetCmdQueryPool() *cobra.Command {
 	}
 
 	flags.AddQueryFlagsToCmd(cmd)
+
+	return cmd
+}
+
+func GetCmdQueryPoolShares() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "poolShares [address]",
+		Args:  cobra.ExactArgs(1),
+		Short: "Query pool shares for address",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			queryClient := types.NewQueryClient(clientCtx)
+
+			address, err := sdk.AccAddressFromBech32(args[0])
+			if err != nil {
+				return err
+			}
+			pageReq, err := client.ReadPageRequest(cmd.Flags())
+			if err != nil {
+				return err
+			}
+			res, err := queryClient.PoolShares(cmd.Context(), &types.QueryPoolSharesRequest{Address: address.String(), Pagination: pageReq})
+			if err != nil {
+				return err
+			}
+
+			return clientCtx.PrintProto(res)
+		},
+	}
+
+	flags.AddQueryFlagsToCmd(cmd)
+	flags.AddPaginationFlagsToCmd(cmd, "all pool shares")
 
 	return cmd
 }

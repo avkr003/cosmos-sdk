@@ -25,10 +25,8 @@ func GetPoolKey(id uint64) []byte {
 	return append(PoolKey, b...)
 }
 
-func GetPoolShareKey(id uint64, accountAddress sdk.AccAddress) []byte {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, id)
-	return append(PoolShareKey, append(b, address.MustLengthPrefix(accountAddress)...)...)
+func GetPoolShareKey(accountAddress sdk.AccAddress) []byte {
+	return append(PoolShareKey, address.MustLengthPrefix(accountAddress)...)
 }
 
 func GetPoolSharesKey(id uint64) []byte {

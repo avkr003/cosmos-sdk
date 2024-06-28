@@ -21,17 +21,15 @@ message Pool {
 
   string creator = 5;
 
-  string totalShares = 6 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Int", (gogoproto.nullable) = false];
+  string totalShares = 6 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec", (gogoproto.nullable) = false];
 }
 
 message PoolShare {
   option (gogoproto.equal) = true;
 
-  uint64 id = 1;
+  string address = 1;
 
-  string address = 2;
-
-  string shares = 3 [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Int", (gogoproto.nullable) = false];
+  repeated cosmos.base.v1beta1.DecCoin shares = 2 [(gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.DecCoins", (gogoproto.nullable)     = false, (amino.dont_omitempty)   = true];
 }
 
 message Params {

@@ -73,16 +73,26 @@ func (k Keeper) GetNextPoolNumber(ctx sdk.Context) uint64 {
 	return poolNumber
 }
 
-func (k Keeper) createNewPool(ctx sdk.Context, pool types.Pool, poolShare types.PoolShare) error {
+func (k Keeper) createNewPool(ctx sdk.Context, creatorAddress sdk.AccAddress, token1, token2 sdk.Coin, fee sdk.Dec) (pool types.Pool, err error) {
+
+	poolId := k.GetNextPoolNumber(ctx)
+	initialTotalShare, err := token1.Amount.ToLegacyDec().Mul(token2.Amount.ToLegacyDec()).ApproxSqrt()
+	if err != nil {
+		return pool, err
+	}
+
+	pool = types.NewPool(poolId, token1, token2, fee, creatorAddress, initialTotalShare)
+	share := sdk.NewDecCoinFromDec(pool.GetPoolShareDenom(), initialTotalShare)
+	poolShare := types.NewPoolShare(creatorAddress, share)
 
 	coins := sdk.Coins{pool.Token1, pool.Token2}
-	err := k.bankKeeper.SendCoins(ctx, pool.GetCreatorAddress(), pool.GetPoolAddress(), coins)
+	err = k.bankKeeper.SendCoins(ctx, pool.GetCreatorAddress(), pool.GetPoolAddress(), coins)
 	if err != nil {
-		return err
+		return pool, err
 	}
 
 	k.SetPool(ctx, pool)
 	k.SetPoolShare(ctx, poolShare)
 	k.SetNextPoolNumber(ctx, pool.GetId()+1)
-	return nil
+	return pool, nil
 }

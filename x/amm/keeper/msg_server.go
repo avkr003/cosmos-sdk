@@ -11,14 +11,9 @@ var _ types.MsgServer = Keeper{}
 
 func (k Keeper) CreatePool(goCtx context.Context, msg *types.MsgCreatePoolMessage) (*types.MsgCreatePoolResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	creatorAddress := sdk.MustAccAddressFromBech32(msg.FromAddress)
-	initialShare := sdk.NewInt(1000000)
-	poolId := k.GetNextPoolNumber(ctx)
+	creatorAddress := sdk.MustAccAddressFromBech32(msg.From)
 
-	pool := types.NewPool(poolId, msg.Token_1, msg.Token_2, msg.Fee, creatorAddress, initialShare)
-	poolShare := types.NewPoolShare(poolId, creatorAddress, initialShare)
-
-	err := k.createNewPool(ctx, pool, poolShare)
+	pool, err := k.createNewPool(ctx, creatorAddress, msg.Token1, msg.Token2, msg.Fee)
 	if err != nil {
 		return nil, err
 	}
@@ -26,10 +21,33 @@ func (k Keeper) CreatePool(goCtx context.Context, msg *types.MsgCreatePoolMessag
 	ctx.EventManager().EmitEvents(sdk.Events{
 		sdk.NewEvent(
 			types.EventNewPool,
-			sdk.NewAttribute(types.AttributeKeyPoolId, strconv.FormatUint(poolId, 10)),
-			sdk.NewAttribute(types.AttributeKeyCreator, msg.FromAddress),
+			sdk.NewAttribute(types.AttributeKeyPoolId, strconv.FormatUint(pool.GetId(), 10)),
+			sdk.NewAttribute(types.AttributeKeyCreator, msg.From),
+			sdk.NewAttribute(types.AttributeKeyTotalShares, pool.TotalShares.String()),
 		),
 	})
 
 	return &types.MsgCreatePoolResponse{}, nil
+}
+
+func (k Keeper) JoinPool(goCtx context.Context, msg *types.MsgJoinPoolMessage) (*types.MsgJoinPoolResponse, error) {
+	//ctx := sdk.UnwrapSDKContext(goCtx)
+	//fromAddress := sdk.MustAccAddressFromBech32(msg.From)
+	//
+
+	return &types.MsgJoinPoolResponse{}, nil
+}
+
+func (k Keeper) Swap(goCtx context.Context, msg *types.MsgSwapMessage) (*types.MsgSwapResponse, error) {
+	//ctx := sdk.UnwrapSDKContext(goCtx)
+	//fromAddress := sdk.MustAccAddressFromBech32(msg.From)
+
+	return &types.MsgSwapResponse{}, nil
+}
+
+func (k Keeper) ExitPool(goCtx context.Context, msg *types.MsgExitPoolMessage) (*types.MsgExitPoolResponse, error) {
+	//ctx := sdk.UnwrapSDKContext(goCtx)
+	//fromAddress := sdk.MustAccAddressFromBech32(msg.From)
+
+	return &types.MsgExitPoolResponse{}, nil
 }

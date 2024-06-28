@@ -23,7 +23,7 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState *types.GenesisState) {
 
 func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	pools := k.GetAllPools(ctx)
-	poolShares := k.GetAllPoolSharess(ctx)
+	poolShares := k.GetAllPoolShares(ctx)
 
 	return &types.GenesisState{
 		Params:         k.GetParams(ctx),
