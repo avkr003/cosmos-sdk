@@ -12,4 +12,7 @@ var (
 	ErrInvalidToken             = sdkerrors.Register(ModuleName, 6, "Invalid token for the pool")
 	ErrPoolShareGreater         = sdkerrors.Register(ModuleName, 7, "Pool share value greater than total")
 	ErrRedeemingMoreThanAllowed = sdkerrors.Register(ModuleName, 8, "Redeeming pool share than allowed")
+	ErrInsufficientLiquidity    = sdkerrors.Register(ModuleName, 9, "not enough liquidity in pool")
+	ErrPoolNotEmpty             = sdkerrors.Register(ModuleName, 10, "pool is not empty")
+	ErrTokenNotAllowed          = sdkerrors.Register(ModuleName, 11, "token not allowed to create pool")
 )

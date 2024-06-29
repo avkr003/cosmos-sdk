@@ -53,13 +53,25 @@ func (msg MsgCreatePoolMessage) ValidateBasic() error {
 		return sdkerrors.ErrInvalidCoins.Wrapf("invalid coin: %s", err)
 	}
 
+	if msg.Token1.Amount.IsZero() {
+		return sdkerrors.ErrInvalidCoins.Wrapf("cannot create pool with 0 tokens: %s", msg.Token1.String())
+	}
+
 	err = msg.Token2.Validate()
 	if err != nil {
 		return sdkerrors.ErrInvalidCoins.Wrapf("invalid coin: %s", err)
 	}
 
+	if msg.Token2.Amount.IsZero() {
+		return sdkerrors.ErrInvalidCoins.Wrapf("cannot create pool with 0 tokens: %s", msg.Token2.String())
+	}
+
 	if msg.Fee.LTE(sdk.ZeroDec()) {
-		return ErrInvalidFees
+		return ErrInvalidFees.Wrapf("fees less than 0")
+	}
+
+	if msg.Fee.GTE(sdk.OneDec()) {
+		return ErrInvalidFees.Wrapf("fees greater than 1")
 	}
 	return nil
 }
@@ -97,6 +109,10 @@ func (msg MsgJoinPoolMessage) ValidateBasic() error {
 		return sdkerrors.ErrInvalidCoins.Wrapf("invalid coin: %s", err)
 	}
 
+	if msg.Token.Amount.IsZero() {
+		return sdkerrors.ErrInvalidCoins.Wrapf("cannot join pool with 0 tokens: %s", msg.Token.String())
+	}
+
 	return nil
 }
 
@@ -131,6 +147,10 @@ func (msg MsgSwapMessage) ValidateBasic() error {
 	err = msg.Token.Validate()
 	if err != nil {
 		return sdkerrors.ErrInvalidCoins.Wrapf("invalid coin: %s", err)
+	}
+
+	if msg.Token.Amount.IsZero() {
+		return sdkerrors.ErrInvalidCoins.Wrapf("cannot swap 0 tokens: %s", msg.Token.String())
 	}
 
 	return nil

@@ -72,6 +72,25 @@ func (p Pool) GetKey() []byte {
 	return GetPoolKey(p.GetId())
 }
 
+func (p Pool) Validate() error {
+	if err := p.Token1.Validate(); err != nil {
+		return err
+	}
+	if err := p.Token2.Validate(); err != nil {
+		return err
+	}
+	if p.Fee.LTE(sdk.ZeroDec()) || p.Fee.GTE(sdk.OneDec()) {
+		return ErrInvalidFees.Wrapf("fees <= 0 or >= 1")
+	}
+	if _, err := sdk.AccAddressFromBech32(p.Creator); err != nil {
+		return err
+	}
+	if p.TotalShares.LT(sdk.ZeroDec()) {
+		return ErrInvalidLpShares
+	}
+	return nil
+}
+
 func NewPool(id uint64, token1, token2 sdk.Coin, fee sdk.Dec, creator sdk.AccAddress, totalShare sdk.Dec) Pool {
 	return Pool{
 		Id:          id,

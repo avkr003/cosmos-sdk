@@ -40,13 +40,25 @@ func (p *PoolShare) SubtractShare(toSubtract sdk.DecCoin) error {
 		} else {
 			p.Shares[found] = value
 		}
-		return p.Shares[found].Validate()
+		return nil
 	}
 	return ErrLpSharesNotFound
 }
 
 func (p PoolShare) GetKey() []byte {
 	return GetPoolShareKey(p.GetAccAddress())
+}
+
+func (p PoolShare) Validate() error {
+	if _, err := sdk.AccAddressFromBech32(p.Address); err != nil {
+		return err
+	}
+	for _, share := range p.GetShares() {
+		if share.Amount.LTE(sdk.ZeroDec()) {
+			return ErrInvalidLpShares
+		}
+	}
+	return nil
 }
 
 func NewPoolShare(account sdk.AccAddress, share sdk.DecCoin) PoolShare {

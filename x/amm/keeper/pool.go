@@ -75,6 +75,30 @@ func (k Keeper) GetNextPoolNumber(ctx sdk.Context) uint64 {
 
 func (k Keeper) createNewPool(ctx sdk.Context, creatorAddress sdk.AccAddress, token1, token2 sdk.Coin, fee sdk.Dec) (pool types.Pool, err error) {
 
+	allowedTokens := k.GetParams(ctx).AllowedTokens
+	token1Found := false
+	token2Found := false
+
+	for _, allowedToken := range allowedTokens {
+		if token1.Denom == allowedToken {
+			token1Found = true
+		}
+		if token2.Denom == allowedToken {
+			token2Found = true
+		}
+		if token1Found && token2Found {
+			break
+		}
+	}
+
+	if !token1Found {
+		return pool, types.ErrTokenNotAllowed.Wrapf(": " + token1.Denom)
+	}
+
+	if !token2Found {
+		return pool, types.ErrTokenNotAllowed.Wrapf(": " + token2.Denom)
+	}
+
 	poolId := k.GetNextPoolNumber(ctx)
 	initialTotalShare, err := token1.Amount.ToLegacyDec().Mul(token2.Amount.ToLegacyDec()).ApproxSqrt()
 	if err != nil {
@@ -105,6 +129,10 @@ func (k Keeper) joinPool(ctx sdk.Context, poolId uint64, fromAddress sdk.AccAddr
 
 	if pool.GetToken1().Denom != token.Denom && pool.GetToken2().Denom != token.Denom {
 		return pool, sdk.ZeroDec(), types.ErrInvalidToken
+	}
+
+	if pool.GetToken1().IsZero() || pool.GetToken2().IsZero() {
+		return pool, sdk.ZeroDec(), types.ErrInsufficientLiquidity.Wrapf("one or both assets of pool is empty. refill the pool or create new pool")
 	}
 
 	isRequiredToken2 := pool.GetToken1().Denom == token.Denom
@@ -155,6 +183,10 @@ func (k Keeper) swap(ctx sdk.Context, poolId uint64, fromAddress sdk.AccAddress,
 		return sdk.Coin{}, types.ErrInvalidToken
 	}
 
+	if pool.GetToken1().IsZero() || pool.GetToken2().IsZero() {
+		return sdk.Coin{}, types.ErrInsufficientLiquidity
+	}
+
 	effectiveTokenInAmount := tokenIn.Amount.ToLegacyDec().Mul(sdk.OneDec().Sub(pool.GetFee())).TruncateInt()
 
 	isRequiredToken2 := pool.GetToken1().Denom == tokenIn.Denom
@@ -202,22 +234,22 @@ func (k Keeper) exitPool(ctx sdk.Context, poolId uint64, fromAddress sdk.AccAddr
 		return types.ErrLpSharesNotFound
 	}
 
-	totalShares, foundAt := poolShare.GetShare(pool.GetPoolShareDenom())
+	totalAddressShares, foundAt := poolShare.GetShare(pool.GetPoolShareDenom())
 	if foundAt == -1 {
 		return types.ErrLpSharesNotFound
 	}
 
 	refundShareAmount := lpShares
 
-	if refundShareAmount.GT(totalShares.Amount) {
+	if refundShareAmount.GT(totalAddressShares.Amount) {
 		return types.ErrRedeemingMoreThanAllowed
 	}
 
 	if withdrawAll {
-		refundShareAmount = totalShares.Amount
+		refundShareAmount = totalAddressShares.Amount
 	}
 
-	ratio := refundShareAmount.Quo(pool.GetTotalShares())
+	ratio := refundShareAmount.Quo(pool.GetTotalShares()) // divided by 0 not possible here because ErrLpSharesNotFound will happen beforehand
 	token1Out := sdk.NewCoin(pool.GetToken1().Denom, ratio.Mul(pool.GetToken1().Amount.ToLegacyDec()).TruncateInt())
 	token2Out := sdk.NewCoin(pool.GetToken2().Denom, ratio.Mul(pool.GetToken2().Amount.ToLegacyDec()).TruncateInt())
 
@@ -246,4 +278,35 @@ func (k Keeper) exitPool(ctx sdk.Context, poolId uint64, fromAddress sdk.AccAddr
 	k.SetPool(ctx, pool)
 	k.SetPoolShare(ctx, poolShare)
 	return nil
+}
+
+func (k Keeper) refillEmptyPool(ctx sdk.Context, fromAddress sdk.AccAddress, poolId uint64, token1, token2 sdk.Coin) (pool types.Pool, err error) {
+
+	pool, found := k.GetPool(ctx, poolId)
+	if !found {
+		return pool, types.ErrPoolNotFound
+	}
+
+	if !(pool.GetToken1().IsZero() && pool.GetToken2().IsZero()) {
+		return pool, types.ErrPoolNotEmpty
+	}
+
+	totalShare, err := token1.Amount.ToLegacyDec().Mul(token2.Amount.ToLegacyDec()).ApproxSqrt()
+	if err != nil {
+		return pool, err
+	}
+
+	pool = types.NewPool(poolId, token1, token2, pool.GetFee(), pool.GetCreatorAddress(), totalShare)
+	share := sdk.NewDecCoinFromDec(pool.GetPoolShareDenom(), totalShare)
+	poolShare := types.NewPoolShare(pool.GetCreatorAddress(), share)
+
+	coins := sdk.Coins{pool.Token1, pool.Token2}
+	err = k.bankKeeper.SendCoins(ctx, fromAddress, pool.GetPoolAddress(), coins)
+	if err != nil {
+		return pool, err
+	}
+
+	k.SetPool(ctx, pool)
+	k.SetPoolShare(ctx, poolShare)
+	return pool, nil
 }

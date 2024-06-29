@@ -20,5 +20,17 @@ func (gs GenesisState) Validate() error {
 	if err := gs.Params.Validate(); err != nil {
 		return err
 	}
+
+	for _, pool := range gs.Pools {
+		if err := pool.Validate(); err != nil {
+			return err
+		}
+	}
+
+	for _, poolShare := range gs.PoolShares {
+		if err := poolShare.Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }

@@ -2,19 +2,20 @@ package types
 
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"sigs.k8s.io/yaml"
 )
 
-const DefaultFeeDistributionPeriod = 10000
+var DefaultAllowedTokens = []string{"uelys", "ubtc", "ueth", "uatom", "uusd"}
 
-func NewParams(feeDistributionPeriod uint32) Params {
+func NewParams(allowedTokens []string) Params {
 	return Params{
-		FeeDistributionPeriod: feeDistributionPeriod,
+		AllowedTokens: allowedTokens,
 	}
 }
 
 func DefaultParams() Params {
-	return NewParams(DefaultFeeDistributionPeriod)
+	return NewParams(DefaultAllowedTokens)
 }
 
 func (p Params) String() string {
@@ -41,5 +42,10 @@ func UnmarshalParams(cdc *codec.LegacyAmino, value []byte) (params Params, err e
 }
 
 func (p Params) Validate() error {
+	for _, denom := range p.AllowedTokens {
+		if err := sdk.ValidateDenom(denom); err != nil {
+			return err
+		}
+	}
 	return nil
 }

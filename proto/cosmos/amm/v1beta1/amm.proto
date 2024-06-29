@@ -37,5 +37,5 @@ message Params {
   option (gogoproto.goproto_stringer) = false;
   option (gogoproto.equal) = true;
 
-  uint32 fee_distribution_period = 1;
+  repeated string allowed_tokens = 1;
 }
