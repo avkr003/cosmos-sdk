@@ -16,6 +16,10 @@ service Query {
     option (google.api.http).get = "/cosmos/amm/v1beta1/pool/{poolId}";
   }
 
+  rpc Pools(QueryPoolsRequest) returns (QueryPoolsResponse) {
+    option (google.api.http).get = "/cosmos/amm/v1beta1/pools";
+  }
+
   rpc PoolShares(QueryPoolSharesRequest) returns (QueryPoolSharesResponse) {
     option (google.api.http).get = "/cosmos/amm/v1beta1/poolShare/{address}";
   }
@@ -33,16 +37,23 @@ message QueryPoolResponse {
   Pool pool = 1 [(gogoproto.nullable) = false];
 }
 
+message QueryPoolsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryPoolsResponse {
+  repeated Pool pools = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
 message QueryPoolSharesRequest {
   string address = 1;
-  cosmos.base.query.v1beta1.PageRequest pagination = 2;
 }
 
 message QueryPoolSharesResponse {
 
-  repeated PoolShare poolShares = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
-
-  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+  PoolShare poolShare = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
 
 }
 

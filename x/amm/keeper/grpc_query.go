@@ -40,18 +40,33 @@ func (k Keeper) PoolShares(c context.Context, req *types.QueryPoolSharesRequest)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid address: %s", err.Error())
 	}
-	poolShares := []types.PoolShare{}
+
 	ctx := sdk.UnwrapSDKContext(c)
 
-	poolShareStore := k.getAccountPoolShareStore(ctx, address)
-	pageRes, err := query.Paginate(poolShareStore, req.Pagination, func(key, value []byte) error {
-		poolShare := types.MustUnmarshalPoolShare(k.cdc, value)
-		poolShares = append(poolShares, poolShare)
+	poolShare, found := k.GetPoolShare(ctx, address)
+	if !found {
+		return nil, status.Errorf(codes.InvalidArgument, "pool share not found for address: %s", err.Error())
+	}
+
+	return &types.QueryPoolSharesResponse{PoolShare: poolShare}, nil
+}
+
+func (k Keeper) Pools(c context.Context, req *types.QueryPoolsRequest) (*types.QueryPoolsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+	pools := []types.Pool{}
+	ctx := sdk.UnwrapSDKContext(c)
+
+	poolStore := k.getPoolStore(ctx)
+	pageRes, err := query.Paginate(poolStore, req.Pagination, func(key, value []byte) error {
+		pool := types.MustUnmarshalPool(k.cdc, value)
+		pools = append(pools, pool)
 		return nil
 	})
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "paginate: %v", err)
 	}
 
-	return &types.QueryPoolSharesResponse{PoolShares: poolShares, Pagination: pageRes}, nil
+	return &types.QueryPoolsResponse{Pools: pools, Pagination: pageRes}, nil
 }

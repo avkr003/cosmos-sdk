@@ -23,6 +23,7 @@ func GetQueryCmd() *cobra.Command {
 	authorizationQueryCmd.AddCommand(
 		GetCmdQueryParams(),
 		GetCmdQueryPool(),
+		GetCmdQueryPools(),
 		GetCmdQueryPoolShares(),
 	)
 
@@ -86,6 +87,37 @@ func GetCmdQueryPool() *cobra.Command {
 	return cmd
 }
 
+func GetCmdQueryPools() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "pools",
+		Args:  cobra.NoArgs,
+		Short: "Query all pools",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			queryClient := types.NewQueryClient(clientCtx)
+
+			pageReq, err := client.ReadPageRequest(cmd.Flags())
+			if err != nil {
+				return err
+			}
+			res, err := queryClient.Pools(cmd.Context(), &types.QueryPoolsRequest{Pagination: pageReq})
+			if err != nil {
+				return err
+			}
+
+			return clientCtx.PrintProto(res)
+		},
+	}
+
+	flags.AddQueryFlagsToCmd(cmd)
+	flags.AddPaginationFlagsToCmd(cmd, "all pool shares")
+
+	return cmd
+}
+
 func GetCmdQueryPoolShares() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "poolShares [address]",
@@ -102,11 +134,7 @@ func GetCmdQueryPoolShares() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			pageReq, err := client.ReadPageRequest(cmd.Flags())
-			if err != nil {
-				return err
-			}
-			res, err := queryClient.PoolShares(cmd.Context(), &types.QueryPoolSharesRequest{Address: address.String(), Pagination: pageReq})
+			res, err := queryClient.PoolShares(cmd.Context(), &types.QueryPoolSharesRequest{Address: address.String()})
 			if err != nil {
 				return err
 			}

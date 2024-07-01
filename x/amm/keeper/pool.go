@@ -75,14 +75,15 @@ func (k Keeper) GetNextPoolNumber(ctx sdk.Context) uint64 {
 
 func (k Keeper) createNewPool(ctx sdk.Context, creatorAddress sdk.AccAddress, tokens sdk.Coins, fee sdk.Dec) (pool types.Pool, err error) {
 
+	params := k.GetParams(ctx)
 	// tokens are always sorted due to validation check, even when creating pools so no need to check denom name for token 1 and token 2
-	allowedTokens := k.GetParams(ctx).SwapAllowedTokens
+
 	token1 := tokens[0]
 	token1Found := false
 	token2 := tokens[1]
 	token2Found := false
 
-	for _, allowedToken := range allowedTokens {
+	for _, allowedToken := range params.SwapAllowedTokens {
 		if token1.Denom == allowedToken {
 			token1Found = true
 		}
@@ -100,6 +101,11 @@ func (k Keeper) createNewPool(ctx sdk.Context, creatorAddress sdk.AccAddress, to
 
 	if !token2Found {
 		return pool, types.ErrTokenNotAllowed.Wrapf(": " + token2.Denom)
+	}
+
+	// no need to check for fee to be less than 0, already checked in ValidateBasic of the message
+	if fee.GT(params.MaxSwapFee) {
+		return pool, types.ErrInvalidFees.Wrapf("swap fee is greater than allowed %s ", params.MaxSwapFee.String())
 	}
 
 	poolId := k.GetNextPoolNumber(ctx)

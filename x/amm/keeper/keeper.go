@@ -42,7 +42,7 @@ func (k Keeper) GetAuthority() string {
 	return k.authority
 }
 
-func (k Keeper) getAccountPoolShareStore(ctx sdk.Context, address sdk.AccAddress) prefix.Store {
+func (k Keeper) getPoolStore(ctx sdk.Context) prefix.Store {
 	store := ctx.KVStore(k.storeKey)
-	return prefix.NewStore(store, types.GetPoolShareKey(address))
+	return prefix.NewStore(store, types.PoolKey)
 }
