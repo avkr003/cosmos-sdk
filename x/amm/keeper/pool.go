@@ -340,9 +340,6 @@ func (k Keeper) refillEmptyPool(ctx sdk.Context, fromAddress sdk.AccAddress, poo
 	if err != nil {
 		return err
 	}
-	pool = types.NewPool(pool.GetId(), token1, token2, pool.GetFee(), pool.GetCreatorAddress(), initialTotalShare)
-	share := sdk.NewCoin(pool.GetPoolShareDenom(), initialTotalShare)
-	poolShare := types.NewPoolShare(pool.GetCreatorAddress(), share)
 
 	coins := sdk.Coins{pool.Token1, pool.Token2}
 	err = k.bankKeeper.SendCoins(ctx, fromAddress, pool.GetPoolAddress(), coins)
@@ -350,7 +347,16 @@ func (k Keeper) refillEmptyPool(ctx sdk.Context, fromAddress sdk.AccAddress, poo
 		return err
 	}
 
+	pool = types.NewPool(pool.GetId(), token1, token2, pool.GetFee(), pool.GetCreatorAddress(), initialTotalShare)
 	k.SetPool(ctx, pool)
+
+	share := sdk.NewCoin(pool.GetPoolShareDenom(), initialTotalShare)
+	poolShare, found := k.GetPoolShare(ctx, fromAddress)
+	if !found {
+		poolShare = types.NewPoolShare(fromAddress, share)
+	} else {
+		poolShare.AddShare(share)
+	}
 	k.SetPoolShare(ctx, poolShare)
 	return nil
 }

@@ -32,11 +32,6 @@ func (p PoolShare) Validate() error {
 	if err := p.Shares.Validate(); err != nil {
 		return err
 	}
-	for _, share := range p.GetShares() {
-		if share.Amount.LTE(sdk.ZeroInt()) {
-			return ErrInvalidLpShares
-		}
-	}
 	return nil
 }
 
