@@ -150,7 +150,7 @@ func (k Keeper) joinPool(ctx sdk.Context, poolId uint64, fromAddress sdk.AccAddr
 	if len(tokens) == 2 {
 		// tokens are always sorted due to validation check, even when creating pools so no need to check denom name for token 1 and token 2
 		if tokens[0].Denom != pool.GetToken1().Denom || tokens[1].Denom != pool.GetToken2().Denom {
-			return pool, types.ErrInvalidTokens.Wrapf("only 1 or 2 token can be given")
+			return pool, types.ErrInvalidTokens.Wrapf("tokens do not match pool tokens")
 		}
 		if pool.GetToken1().IsZero() && pool.GetToken2().IsZero() {
 			err = k.refillEmptyPool(ctx, fromAddress, pool, tokens)
