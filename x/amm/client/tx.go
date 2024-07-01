@@ -35,31 +35,26 @@ func GetTxCmd() *cobra.Command {
 
 func NewCmdCreatePool() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create [token_1] [token_2] [fee]",
+		Use:   "create [tokens] [fee]",
 		Short: "create new pool",
-		Args:  cobra.ExactArgs(3),
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
 			if err != nil {
 				return err
 			}
 
-			token1, err := sdk.ParseCoinNormalized(args[0])
+			tokens, err := sdk.ParseCoinsNormalized(args[0])
 			if err != nil {
 				return err
 			}
 
-			token2, err := sdk.ParseCoinNormalized(args[1])
+			fee, err := sdk.NewDecFromStr(args[1])
 			if err != nil {
 				return err
 			}
 
-			fee, err := sdk.NewDecFromStr(args[2])
-			if err != nil {
-				return err
-			}
-
-			msg := types.NewMsgCreatePoolMessage(clientCtx.GetFromAddress(), token1, token2, fee)
+			msg := types.NewMsgCreatePoolMessage(clientCtx.GetFromAddress(), tokens, fee)
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), &msg)
 		},
@@ -70,7 +65,7 @@ func NewCmdCreatePool() *cobra.Command {
 
 func NewCmdJoinPool() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "join [poolId] [token]",
+		Use:   "join [poolId] [tokens]",
 		Short: "join an existing pool",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -83,12 +78,16 @@ func NewCmdJoinPool() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			token, err := sdk.ParseCoinNormalized(args[1])
+			tokens, err := sdk.ParseCoinsNormalized(args[1])
 			if err != nil {
 				return err
 			}
 
-			msg := types.NewMsgJoinPoolMessage(clientCtx.GetFromAddress(), poolId, token)
+			if len(tokens) == 0 || len(tokens) > 2 {
+				return types.ErrInvalidTokens.Wrapf("only 1 or 2 token can be given")
+			}
+
+			msg := types.NewMsgJoinPoolMessage(clientCtx.GetFromAddress(), poolId, tokens)
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), &msg)
 		},
@@ -141,9 +140,9 @@ func NewCmdExitPool() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			lpShare, err := sdk.NewDecFromStr(args[1])
-			if err != nil {
-				return err
+			lpShare, ok := sdk.NewIntFromString(args[1])
+			if !ok {
+				return types.ErrInvalidLpShares.Wrapf("cannot parse %s", lpShare)
 			}
 
 			withdrawAll, _ := cmd.Flags().GetBool(FlagWithdrawAll)

@@ -9,40 +9,16 @@ func (p *PoolShare) GetAccAddress() sdk.AccAddress {
 	return sdk.MustAccAddressFromBech32(p.Address)
 }
 
-func (p *PoolShare) GetShare(denom string) (sdk.DecCoin, int) {
-	for i, decCoin := range p.GetShares() {
-		if decCoin.Denom == denom {
-			return decCoin, i
-		}
-	}
-	return sdk.DecCoin{}, -1
+func (p *PoolShare) GetShare(denom string) sdk.Int {
+	return p.GetShares().AmountOf(denom)
 }
 
-func (p *PoolShare) AddShare(toAdd sdk.DecCoin) {
-	coin, found := p.GetShare(toAdd.Denom)
-	if found == -1 {
-		p.Shares = append(p.Shares, toAdd)
-		p.Shares = p.Shares.Sort()
-	} else {
-		p.Shares[found] = coin.Add(toAdd)
-	}
+func (p *PoolShare) AddShare(toAdd sdk.Coin) {
+	p.Shares = p.Shares.Add(toAdd)
 }
 
-func (p *PoolShare) SubtractShare(toSubtract sdk.DecCoin) error {
-	coin, found := p.GetShare(toSubtract.Denom)
-	if found != -1 {
-		value := coin.Sub(toSubtract)
-		if value.Amount.LT(sdk.ZeroDec()) {
-			return ErrPoolShareGreater
-		}
-		if value.Equal(sdk.ZeroDec()) {
-			p.Shares = append(p.Shares[:found], p.Shares[found+1:]...)
-		} else {
-			p.Shares[found] = value
-		}
-		return nil
-	}
-	return ErrLpSharesNotFound
+func (p *PoolShare) SubtractShare(toSubtract sdk.Coin) {
+	p.Shares = p.Shares.Sub(toSubtract)
 }
 
 func (p PoolShare) GetKey() []byte {
@@ -53,18 +29,21 @@ func (p PoolShare) Validate() error {
 	if _, err := sdk.AccAddressFromBech32(p.Address); err != nil {
 		return err
 	}
+	if err := p.Shares.Validate(); err != nil {
+		return err
+	}
 	for _, share := range p.GetShares() {
-		if share.Amount.LTE(sdk.ZeroDec()) {
+		if share.Amount.LTE(sdk.ZeroInt()) {
 			return ErrInvalidLpShares
 		}
 	}
 	return nil
 }
 
-func NewPoolShare(account sdk.AccAddress, share sdk.DecCoin) PoolShare {
+func NewPoolShare(account sdk.AccAddress, share sdk.Coin) PoolShare {
 	return PoolShare{
 		Address: account.String(),
-		Shares:  sdk.DecCoins{share},
+		Shares:  sdk.NewCoins(share),
 	}
 }
 

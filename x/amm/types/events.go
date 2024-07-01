@@ -10,6 +10,7 @@ const (
 	AttributeKeyCreator     = "creator"
 	AttributeKeyTotalShares = "total_shares"
 	AttributeKeyAddress     = "address"
+	AttributeKeyPoolAddress = "pool_address"
 	AttributeKeyAdded       = "added"
 	AttributeKeyRemoved     = "removed"
 	AttributeKeyTokenIn     = "token_in"

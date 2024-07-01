@@ -6,10 +6,11 @@ import (
 )
 
 const (
-	TypeMsgCreatePool = "createPool"
-	TypeMsgJoinPool   = "joinPool"
-	TypeMsgSwap       = "swap"
-	TypeMsgExitPool   = "exitPool"
+	TypeMsgCreatePool   = "createPool"
+	TypeMsgJoinPool     = "joinPool"
+	TypeMsgSwap         = "swap"
+	TypeMsgExitPool     = "exitPool"
+	TypeMsgUpdateParams = "update_params"
 )
 
 var (
@@ -17,14 +18,14 @@ var (
 	_ sdk.Msg = &MsgJoinPoolMessage{}
 	_ sdk.Msg = &MsgSwapMessage{}
 	_ sdk.Msg = &MsgExitPoolMessage{}
+	_ sdk.Msg = &MsgUpdateParams{}
 )
 
-func NewMsgCreatePoolMessage(from sdk.AccAddress, token1, token2 sdk.Coin, fee sdk.Dec) MsgCreatePoolMessage {
+func NewMsgCreatePoolMessage(from sdk.AccAddress, tokens sdk.Coins, fee sdk.Dec) MsgCreatePoolMessage {
 
 	return MsgCreatePoolMessage{
 		From:   from.String(),
-		Token1: token1,
-		Token2: token2,
+		Tokens: tokens,
 		Fee:    fee,
 	}
 }
@@ -48,22 +49,13 @@ func (msg MsgCreatePoolMessage) ValidateBasic() error {
 		return sdkerrors.ErrInvalidAddress.Wrapf("invalid from address: %s", err)
 	}
 
-	err = msg.Token1.Validate()
+	if len(msg.Tokens) != 2 {
+		return ErrInvalidTokens.Wrapf("only 2 tokens has to be given")
+	}
+
+	err = msg.Tokens.Validate()
 	if err != nil {
 		return sdkerrors.ErrInvalidCoins.Wrapf("invalid coin: %s", err)
-	}
-
-	if msg.Token1.Amount.IsZero() {
-		return sdkerrors.ErrInvalidCoins.Wrapf("cannot create pool with 0 tokens: %s", msg.Token1.String())
-	}
-
-	err = msg.Token2.Validate()
-	if err != nil {
-		return sdkerrors.ErrInvalidCoins.Wrapf("invalid coin: %s", err)
-	}
-
-	if msg.Token2.Amount.IsZero() {
-		return sdkerrors.ErrInvalidCoins.Wrapf("cannot create pool with 0 tokens: %s", msg.Token2.String())
 	}
 
 	if msg.Fee.LTE(sdk.ZeroDec()) {
@@ -76,12 +68,12 @@ func (msg MsgCreatePoolMessage) ValidateBasic() error {
 	return nil
 }
 
-func NewMsgJoinPoolMessage(from sdk.AccAddress, poolId uint64, token sdk.Coin) MsgJoinPoolMessage {
+func NewMsgJoinPoolMessage(from sdk.AccAddress, poolId uint64, tokens sdk.Coins) MsgJoinPoolMessage {
 
 	return MsgJoinPoolMessage{
 		From:   from.String(),
 		PoolId: poolId,
-		Token:  token,
+		Tokens: tokens,
 	}
 }
 
@@ -104,13 +96,13 @@ func (msg MsgJoinPoolMessage) ValidateBasic() error {
 		return sdkerrors.ErrInvalidAddress.Wrapf("invalid from address: %s", err)
 	}
 
-	err = msg.Token.Validate()
-	if err != nil {
-		return sdkerrors.ErrInvalidCoins.Wrapf("invalid coin: %s", err)
+	if len(msg.Tokens) == 0 || len(msg.Tokens) > 2 {
+		return ErrInvalidTokens.Wrapf("only 1 or 2 token can be given")
 	}
 
-	if msg.Token.Amount.IsZero() {
-		return sdkerrors.ErrInvalidCoins.Wrapf("cannot join pool with 0 tokens: %s", msg.Token.String())
+	err = msg.Tokens.Validate()
+	if err != nil {
+		return sdkerrors.ErrInvalidCoins.Wrapf("invalid coin: %s", err)
 	}
 
 	return nil
@@ -156,7 +148,7 @@ func (msg MsgSwapMessage) ValidateBasic() error {
 	return nil
 }
 
-func NewMsgExitPoolMessage(from sdk.AccAddress, poolId uint64, lpShare sdk.Dec, withdrawAll bool) MsgExitPoolMessage {
+func NewMsgExitPoolMessage(from sdk.AccAddress, poolId uint64, lpShare sdk.Int, withdrawAll bool) MsgExitPoolMessage {
 
 	return MsgExitPoolMessage{
 		From:        from.String(),
@@ -185,8 +177,25 @@ func (msg MsgExitPoolMessage) ValidateBasic() error {
 		return sdkerrors.ErrInvalidAddress.Wrapf("invalid from address: %s", err)
 	}
 
-	if msg.LpShare.LTE(sdk.ZeroDec()) {
+	if msg.LpShare.LTE(sdk.ZeroInt()) {
 		return ErrInvalidLpShares
 	}
 	return nil
+}
+
+func (m *MsgUpdateParams) GetSignBytes() []byte {
+	bz := ModuleCdc.MustMarshalJSON(m)
+	return sdk.MustSortJSON(bz)
+}
+
+func (m *MsgUpdateParams) ValidateBasic() error {
+	if _, err := sdk.AccAddressFromBech32(m.Authority); err != nil {
+		return sdkerrors.Wrap(err, "invalid authority address")
+	}
+	return m.Params.Validate()
+}
+
+func (m *MsgUpdateParams) GetSigners() []sdk.AccAddress {
+	addr, _ := sdk.AccAddressFromBech32(m.Authority)
+	return []sdk.AccAddress{addr}
 }

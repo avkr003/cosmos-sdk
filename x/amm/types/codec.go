@@ -14,6 +14,10 @@ import (
 
 func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	legacy.RegisterAminoMsg(cdc, &MsgCreatePoolMessage{}, "cosmos-sdk/MsgCreatePoolMessage")
+	legacy.RegisterAminoMsg(cdc, &MsgJoinPoolMessage{}, "cosmos-sdk/MsgJoinPoolMessage")
+	legacy.RegisterAminoMsg(cdc, &MsgSwapMessage{}, "cosmos-sdk/MsgSwapMessage")
+	legacy.RegisterAminoMsg(cdc, &MsgExitPoolMessage{}, "cosmos-sdk/MsgExitPoolMessage")
+	legacy.RegisterAminoMsg(cdc, &MsgUpdateParams{}, "cosmos-sdk/MsgUpdateParams")
 
 	cdc.RegisterConcrete(Params{}, "cosmos-sdk/x/amm/Params", nil)
 }
@@ -21,6 +25,10 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 func RegisterInterfaces(registry types.InterfaceRegistry) {
 	registry.RegisterImplementations((*sdk.Msg)(nil),
 		&MsgCreatePoolMessage{},
+		&MsgJoinPoolMessage{},
+		&MsgSwapMessage{},
+		&MsgExitPoolMessage{},
+		&MsgUpdateParams{},
 	)
 
 	msgservice.RegisterMsgServiceDesc(registry, &_Msg_serviceDesc)

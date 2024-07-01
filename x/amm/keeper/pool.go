@@ -73,10 +73,13 @@ func (k Keeper) GetNextPoolNumber(ctx sdk.Context) uint64 {
 	return poolNumber
 }
 
-func (k Keeper) createNewPool(ctx sdk.Context, creatorAddress sdk.AccAddress, token1, token2 sdk.Coin, fee sdk.Dec) (pool types.Pool, err error) {
+func (k Keeper) createNewPool(ctx sdk.Context, creatorAddress sdk.AccAddress, tokens sdk.Coins, fee sdk.Dec) (pool types.Pool, err error) {
 
-	allowedTokens := k.GetParams(ctx).AllowedTokens
+	// tokens are always sorted due to validation check, even when creating pools so no need to check denom name for token 1 and token 2
+	allowedTokens := k.GetParams(ctx).SwapAllowedTokens
+	token1 := tokens[0]
 	token1Found := false
+	token2 := tokens[1]
 	token2Found := false
 
 	for _, allowedToken := range allowedTokens {
@@ -100,14 +103,21 @@ func (k Keeper) createNewPool(ctx sdk.Context, creatorAddress sdk.AccAddress, to
 	}
 
 	poolId := k.GetNextPoolNumber(ctx)
-	initialTotalShare, err := token1.Amount.ToLegacyDec().Mul(token2.Amount.ToLegacyDec()).ApproxSqrt()
+
+	initialTotalShare, err := types.GetInitialPoolShares(token1, token2)
 	if err != nil {
 		return pool, err
 	}
 
 	pool = types.NewPool(poolId, token1, token2, fee, creatorAddress, initialTotalShare)
-	share := sdk.NewDecCoinFromDec(pool.GetPoolShareDenom(), initialTotalShare)
-	poolShare := types.NewPoolShare(creatorAddress, share)
+
+	share := sdk.NewCoin(pool.GetPoolShareDenom(), initialTotalShare)
+	poolShare, found := k.GetPoolShare(ctx, creatorAddress)
+	if !found {
+		poolShare = types.NewPoolShare(creatorAddress, share)
+	} else {
+		poolShare.AddShare(share)
+	}
 
 	coins := sdk.Coins{pool.Token1, pool.Token2}
 	err = k.bankKeeper.SendCoins(ctx, pool.GetCreatorAddress(), pool.GetPoolAddress(), coins)
@@ -121,57 +131,46 @@ func (k Keeper) createNewPool(ctx sdk.Context, creatorAddress sdk.AccAddress, to
 	return pool, nil
 }
 
-func (k Keeper) joinPool(ctx sdk.Context, poolId uint64, fromAddress sdk.AccAddress, token sdk.Coin) (pool types.Pool, sharesAdded sdk.Dec, err error) {
+func (k Keeper) joinPool(ctx sdk.Context, poolId uint64, fromAddress sdk.AccAddress, tokens sdk.Coins) (pool types.Pool, err error) {
 	pool, found := k.GetPool(ctx, poolId)
 	if !found {
-		return pool, sdk.ZeroDec(), types.ErrPoolNotFound
+		return pool, types.ErrPoolNotFound
 	}
 
-	if pool.GetToken1().Denom != token.Denom && pool.GetToken2().Denom != token.Denom {
-		return pool, sdk.ZeroDec(), types.ErrInvalidToken
+	if len(tokens) > 2 || len(tokens) == 0 {
+		return pool, types.ErrInvalidTokens.Wrapf("only 1 or 2 token can be given")
 	}
 
-	if pool.GetToken1().IsZero() || pool.GetToken2().IsZero() {
-		return pool, sdk.ZeroDec(), types.ErrInsufficientLiquidity.Wrapf("one or both assets of pool is empty. refill the pool or create new pool")
+	if len(tokens) == 2 {
+		// tokens are always sorted due to validation check, even when creating pools so no need to check denom name for token 1 and token 2
+		if tokens[0].Denom != pool.GetToken1().Denom || tokens[1].Denom != pool.GetToken2().Denom {
+			return pool, types.ErrInvalidTokens.Wrapf("only 1 or 2 token can be given")
+		}
+		if pool.GetToken1().IsZero() && pool.GetToken2().IsZero() {
+			err = k.refillEmptyPool(ctx, fromAddress, pool, tokens)
+			return pool, err
+		}
+		token1 := tokens[0]
+		token2 := tokens[1]
+		current2by1Ratio := pool.GetToken2by1Ratio()
+		expectedToken2 := token1.Amount.ToLegacyDec().Mul(current2by1Ratio).RoundInt()
+
+		// token 2 amount given is greater than expected token 2 required for given token 1
+		if token2.Amount.GT(expectedToken2) {
+			err = k.singleTokenJoinPool(ctx, fromAddress, pool, token1)
+			return pool, err
+		} else {
+			// token 1 amount given is greater than expected token 1 required for given token 2, or it's given in required ratio - then it doesn't matter which token is send to function
+			err = k.singleTokenJoinPool(ctx, fromAddress, pool, token2)
+			return pool, err
+		}
 	}
 
-	isRequiredToken2 := pool.GetToken1().Denom == token.Denom
-	requiredCoinDenom := pool.GetToken2().Denom
-	requiredRatio := pool.GetToken2().Amount.ToLegacyDec().Quo(pool.GetToken1().Amount.ToLegacyDec())
-	if !isRequiredToken2 {
-		requiredRatio = sdk.OneDec().Quo(requiredRatio)
-		requiredCoinDenom = pool.GetToken1().Denom
+	if len(tokens) == 1 {
+		err = k.singleTokenJoinPool(ctx, fromAddress, pool, tokens[0])
+		return pool, err
 	}
-	requiredAmount := requiredRatio.MulInt(token.Amount).TruncateInt()
-	requiredCoin := sdk.NewCoin(requiredCoinDenom, requiredAmount)
-
-	coins := sdk.Coins{token, requiredCoin}.Sort()
-	err = k.bankKeeper.SendCoins(ctx, fromAddress, pool.GetPoolAddress(), coins)
-	if err != nil {
-		return pool, sdk.ZeroDec(), err
-	}
-
-	newShares := requiredRatio.Mul(pool.TotalShares)
-	if isRequiredToken2 {
-		pool.AddToToken1(token)
-		pool.AddToToken2(requiredCoin)
-	} else {
-		pool.AddToToken1(requiredCoin)
-		pool.AddToToken2(token)
-	}
-	pool.AddTotalShares(newShares)
-	k.SetPool(ctx, pool)
-
-	share := sdk.NewDecCoinFromDec(pool.GetPoolShareDenom(), newShares)
-	poolShare, found := k.GetPoolShare(ctx, fromAddress)
-	if !found {
-		poolShare = types.NewPoolShare(fromAddress, share)
-	} else {
-		poolShare.AddShare(share)
-	}
-	k.SetPoolShare(ctx, poolShare)
-
-	return pool, newShares, nil
+	return pool, err
 }
 
 func (k Keeper) swap(ctx sdk.Context, poolId uint64, fromAddress sdk.AccAddress, tokenIn sdk.Coin) (tokenOut sdk.Coin, err error) {
@@ -187,7 +186,7 @@ func (k Keeper) swap(ctx sdk.Context, poolId uint64, fromAddress sdk.AccAddress,
 		return sdk.Coin{}, types.ErrInsufficientLiquidity
 	}
 
-	effectiveTokenInAmount := tokenIn.Amount.ToLegacyDec().Mul(sdk.OneDec().Sub(pool.GetFee())).TruncateInt()
+	effectiveTokenInAmount := tokenIn.Amount.ToLegacyDec().Mul(sdk.OneDec().Sub(pool.GetFee())).RoundInt()
 
 	isRequiredToken2 := pool.GetToken1().Denom == tokenIn.Denom
 
@@ -223,7 +222,7 @@ func (k Keeper) swap(ctx sdk.Context, poolId uint64, fromAddress sdk.AccAddress,
 	return tokenOut, nil
 }
 
-func (k Keeper) exitPool(ctx sdk.Context, poolId uint64, fromAddress sdk.AccAddress, lpShares sdk.Dec, withdrawAll bool) (err error) {
+func (k Keeper) exitPool(ctx sdk.Context, poolId uint64, fromAddress sdk.AccAddress, lpShares sdk.Int, withdrawAll bool) (err error) {
 	pool, found := k.GetPool(ctx, poolId)
 	if !found {
 		return types.ErrPoolNotFound
@@ -234,24 +233,24 @@ func (k Keeper) exitPool(ctx sdk.Context, poolId uint64, fromAddress sdk.AccAddr
 		return types.ErrLpSharesNotFound
 	}
 
-	totalAddressShares, foundAt := poolShare.GetShare(pool.GetPoolShareDenom())
-	if foundAt == -1 {
+	totalAddressShares := poolShare.GetShare(pool.GetPoolShareDenom())
+	if totalAddressShares.Equal(sdk.ZeroInt()) {
 		return types.ErrLpSharesNotFound
 	}
 
 	refundShareAmount := lpShares
 
-	if refundShareAmount.GT(totalAddressShares.Amount) {
+	if refundShareAmount.GT(totalAddressShares) {
 		return types.ErrRedeemingMoreThanAllowed
 	}
 
 	if withdrawAll {
-		refundShareAmount = totalAddressShares.Amount
+		refundShareAmount = totalAddressShares
 	}
 
-	ratio := refundShareAmount.Quo(pool.GetTotalShares()) // divided by 0 not possible here because ErrLpSharesNotFound will happen beforehand
-	token1Out := sdk.NewCoin(pool.GetToken1().Denom, ratio.Mul(pool.GetToken1().Amount.ToLegacyDec()).TruncateInt())
-	token2Out := sdk.NewCoin(pool.GetToken2().Denom, ratio.Mul(pool.GetToken2().Amount.ToLegacyDec()).TruncateInt())
+	sharesRatio := refundShareAmount.ToLegacyDec().Quo(pool.GetTotalShares().ToLegacyDec()) // divided by 0 not possible here because ErrLpSharesNotFound will happen beforehand
+	token1Out := sdk.NewCoin(pool.GetToken1().Denom, sharesRatio.MulInt(pool.GetToken1().Amount).RoundInt())
+	token2Out := sdk.NewCoin(pool.GetToken2().Denom, sharesRatio.MulInt(pool.GetToken2().Amount).RoundInt())
 
 	err = pool.SubtractFromToken1(token1Out)
 	if err != nil {
@@ -268,45 +267,90 @@ func (k Keeper) exitPool(ctx sdk.Context, poolId uint64, fromAddress sdk.AccAddr
 		return err
 	}
 
-	err = poolShare.SubtractShare(sdk.NewDecCoinFromDec(pool.GetPoolShareDenom(), refundShareAmount))
-	if err != nil {
-		return err
-	}
-
 	pool.SubtractFromTotalShares(refundShareAmount)
+	poolShare.SubtractShare(sdk.NewCoin(pool.GetPoolShareDenom(), refundShareAmount))
 
 	k.SetPool(ctx, pool)
 	k.SetPoolShare(ctx, poolShare)
 	return nil
 }
 
-func (k Keeper) refillEmptyPool(ctx sdk.Context, fromAddress sdk.AccAddress, poolId uint64, token1, token2 sdk.Coin) (pool types.Pool, err error) {
+func (k Keeper) singleTokenJoinPool(ctx sdk.Context, fromAddress sdk.AccAddress, pool types.Pool, token sdk.Coin) error {
 
-	pool, found := k.GetPool(ctx, poolId)
-	if !found {
-		return pool, types.ErrPoolNotFound
+	if pool.GetToken1().Denom != token.Denom && pool.GetToken2().Denom != token.Denom {
+		return types.ErrInvalidToken
 	}
 
-	if !(pool.GetToken1().IsZero() && pool.GetToken2().IsZero()) {
-		return pool, types.ErrPoolNotEmpty
+	if pool.GetToken1().IsZero() || pool.GetToken2().IsZero() {
+		return types.ErrInsufficientLiquidity.Wrapf("one or both assets of pool is empty. refill the pool or create new pool")
 	}
 
-	totalShare, err := token1.Amount.ToLegacyDec().Mul(token2.Amount.ToLegacyDec()).ApproxSqrt()
+	isRequiredToken2 := pool.GetToken1().Denom == token.Denom
+	requiredCoinDenom := pool.GetToken2().Denom
+	requiredTokenRatio := pool.GetToken2by1Ratio()
+	requiredShareRatio := token.Amount.ToLegacyDec().Quo(pool.GetToken1().Amount.ToLegacyDec())
+	if !isRequiredToken2 {
+		requiredTokenRatio = sdk.OneDec().Quo(requiredTokenRatio)
+		requiredCoinDenom = pool.GetToken1().Denom
+		requiredShareRatio = token.Amount.ToLegacyDec().Quo(pool.GetToken2().Amount.ToLegacyDec())
+	}
+	requiredTokenAmount := requiredTokenRatio.MulInt(token.Amount).RoundInt()
+	requiredCoin := sdk.NewCoin(requiredCoinDenom, requiredTokenAmount)
+
+	coins := sdk.Coins{token, requiredCoin}.Sort()
+	err := k.bankKeeper.SendCoins(ctx, fromAddress, pool.GetPoolAddress(), coins)
 	if err != nil {
-		return pool, err
+		return err
 	}
 
-	pool = types.NewPool(poolId, token1, token2, pool.GetFee(), pool.GetCreatorAddress(), totalShare)
-	share := sdk.NewDecCoinFromDec(pool.GetPoolShareDenom(), totalShare)
+	newShares := requiredShareRatio.MulInt(pool.TotalShares).RoundInt()
+	if isRequiredToken2 {
+		pool.AddToToken1(token)
+		pool.AddToToken2(requiredCoin)
+	} else {
+		pool.AddToToken1(requiredCoin)
+		pool.AddToToken2(token)
+	}
+	pool.AddTotalShares(newShares)
+	k.SetPool(ctx, pool)
+
+	share := sdk.NewCoin(pool.GetPoolShareDenom(), newShares)
+	poolShare, found := k.GetPoolShare(ctx, fromAddress)
+	if !found {
+		poolShare = types.NewPoolShare(fromAddress, share)
+	} else {
+		poolShare.AddShare(share)
+	}
+	k.SetPoolShare(ctx, poolShare)
+
+	return nil
+}
+
+func (k Keeper) refillEmptyPool(ctx sdk.Context, fromAddress sdk.AccAddress, pool types.Pool, tokens sdk.Coins) error {
+
+	token1 := tokens[0]
+	token2 := tokens[1]
+
+	poolToken1Denom, poolToken2Denom := pool.GetPoolTokensFromName()
+	if token1.Denom != poolToken1Denom || token2.Denom != poolToken2Denom {
+		return types.ErrInvalidToken.Wrapf("token denom does not match pool name tokens")
+	}
+
+	initialTotalShare, err := types.GetInitialPoolShares(token1, token2)
+	if err != nil {
+		return err
+	}
+	pool = types.NewPool(pool.GetId(), token1, token2, pool.GetFee(), pool.GetCreatorAddress(), initialTotalShare)
+	share := sdk.NewCoin(pool.GetPoolShareDenom(), initialTotalShare)
 	poolShare := types.NewPoolShare(pool.GetCreatorAddress(), share)
 
 	coins := sdk.Coins{pool.Token1, pool.Token2}
 	err = k.bankKeeper.SendCoins(ctx, fromAddress, pool.GetPoolAddress(), coins)
 	if err != nil {
-		return pool, err
+		return err
 	}
 
 	k.SetPool(ctx, pool)
 	k.SetPoolShare(ctx, poolShare)
-	return pool, nil
+	return nil
 }

@@ -3,7 +3,9 @@ package keeper
 import (
 	"context"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/x/amm/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	"strconv"
 )
 
@@ -13,7 +15,7 @@ func (k Keeper) CreatePool(goCtx context.Context, msg *types.MsgCreatePoolMessag
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	creatorAddress := sdk.MustAccAddressFromBech32(msg.From)
 
-	pool, err := k.createNewPool(ctx, creatorAddress, msg.Token1, msg.Token2, msg.Fee)
+	pool, err := k.createNewPool(ctx, creatorAddress, msg.Tokens, msg.Fee)
 	if err != nil {
 		return nil, err
 	}
@@ -23,6 +25,7 @@ func (k Keeper) CreatePool(goCtx context.Context, msg *types.MsgCreatePoolMessag
 			types.EventNewPool,
 			sdk.NewAttribute(types.AttributeKeyPoolId, strconv.FormatUint(pool.GetId(), 10)),
 			sdk.NewAttribute(types.AttributeKeyCreator, msg.From),
+			sdk.NewAttribute(types.AttributeKeyPoolAddress, pool.GetPoolAddress().String()),
 			sdk.NewAttribute(types.AttributeKeyTotalShares, pool.TotalShares.String()),
 		),
 	})
@@ -34,7 +37,7 @@ func (k Keeper) JoinPool(goCtx context.Context, msg *types.MsgJoinPoolMessage) (
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	fromAddress := sdk.MustAccAddressFromBech32(msg.From)
 
-	pool, sharesAdded, err := k.joinPool(ctx, msg.PoolId, fromAddress, msg.Token)
+	pool, err := k.joinPool(ctx, msg.PoolId, fromAddress, msg.Tokens)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +47,6 @@ func (k Keeper) JoinPool(goCtx context.Context, msg *types.MsgJoinPoolMessage) (
 			types.EventLiquidityAdded,
 			sdk.NewAttribute(types.AttributeKeyPoolId, strconv.FormatUint(pool.GetId(), 10)),
 			sdk.NewAttribute(types.AttributeKeyAddress, msg.From),
-			sdk.NewAttribute(types.AttributeKeyAdded, sharesAdded.String()),
 			sdk.NewAttribute(types.AttributeKeyTotalShares, pool.TotalShares.String()),
 		),
 	})
@@ -92,4 +94,18 @@ func (k Keeper) ExitPool(goCtx context.Context, msg *types.MsgExitPoolMessage) (
 	})
 
 	return &types.MsgExitPoolResponse{}, nil
+}
+
+func (k Keeper) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	if k.authority != msg.Authority {
+		return nil, sdkerrors.Wrapf(govtypes.ErrInvalidSigner, "invalid authority; expected %s, got %s", k.authority, msg.Authority)
+	}
+
+	if err := k.SetParams(ctx, msg.Params); err != nil {
+		return nil, err
+	}
+
+	return &types.MsgUpdateParamsResponse{}, nil
 }

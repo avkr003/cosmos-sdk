@@ -15,4 +15,6 @@ var (
 	ErrInsufficientLiquidity    = sdkerrors.Register(ModuleName, 9, "not enough liquidity in pool")
 	ErrPoolNotEmpty             = sdkerrors.Register(ModuleName, 10, "pool is not empty")
 	ErrTokenNotAllowed          = sdkerrors.Register(ModuleName, 11, "token not allowed to create pool")
+	ErrInvalidTokens            = sdkerrors.Register(ModuleName, 12, "invalid tokens")
+	ErrEmptyPoolName            = sdkerrors.Register(ModuleName, 13, "pool name is empty")
 )
