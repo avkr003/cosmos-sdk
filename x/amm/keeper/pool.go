@@ -347,8 +347,7 @@ func (k Keeper) refillEmptyPool(ctx sdk.Context, fromAddress sdk.AccAddress, poo
 		return err
 	}
 
-	coins := sdk.Coins{pool.Token1, pool.Token2}
-	err = k.bankKeeper.SendCoins(ctx, fromAddress, pool.GetPoolAddress(), coins)
+	err = k.bankKeeper.SendCoins(ctx, fromAddress, pool.GetPoolAddress(), sdk.NewCoins(token1, token2))
 	if err != nil {
 		return err
 	}
