@@ -43,12 +43,18 @@ func (k Keeper) PoolShares(c context.Context, req *types.QueryPoolSharesRequest)
 
 	ctx := sdk.UnwrapSDKContext(c)
 
-	poolShare, found := k.GetPoolShare(ctx, address)
-	if !found {
-		return nil, status.Errorf(codes.InvalidArgument, "pool share not found for address: %s", err.Error())
+	allBalances := k.bankKeeper.GetAllBalances(ctx, address)
+	pools := k.GetAllPools(ctx)
+
+	balances := sdk.NewCoins()
+	for _, pool := range pools {
+		amount := allBalances.AmountOf(pool.GetPoolShareDenom())
+		if !amount.IsZero() {
+			balances = balances.Add(sdk.NewCoin(pool.GetPoolShareDenom(), amount))
+		}
 	}
 
-	return &types.QueryPoolSharesResponse{PoolShare: poolShare}, nil
+	return &types.QueryPoolSharesResponse{Shares: balances}, nil
 }
 
 func (k Keeper) Pools(c context.Context, req *types.QueryPoolsRequest) (*types.QueryPoolsResponse, error) {

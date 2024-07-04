@@ -1,11 +1,10 @@
 package types
 
-func NewGenesisState(params Params, pools []Pool, poolShares []PoolShare) *GenesisState {
+func NewGenesisState(params Params, pools []Pool) *GenesisState {
 	return &GenesisState{
 		Params:         params,
 		NextPoolNumber: 1,
 		Pools:          pools,
-		PoolShares:     poolShares,
 	}
 }
 
@@ -27,10 +26,5 @@ func (gs GenesisState) Validate() error {
 		}
 	}
 
-	for _, poolShare := range gs.PoolShares {
-		if err := poolShare.Validate(); err != nil {
-			return err
-		}
-	}
 	return nil
 }

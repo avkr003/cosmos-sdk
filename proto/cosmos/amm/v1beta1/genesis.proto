@@ -16,7 +16,5 @@ message GenesisState {
 
   repeated Pool pools = 3 [(gogoproto.nullable) = false];
 
-  repeated PoolShare pool_shares = 4 [(gogoproto.nullable) = false];
-
 }
 

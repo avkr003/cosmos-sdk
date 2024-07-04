@@ -16,19 +16,14 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState *types.GenesisState) {
 		k.SetPool(ctx, pool)
 	}
 
-	for _, poolShare := range genState.PoolShares {
-		k.SetPoolShare(ctx, poolShare)
-	}
 }
 
 func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	pools := k.GetAllPools(ctx)
-	poolShares := k.GetAllPoolShares(ctx)
 
 	return &types.GenesisState{
 		Params:         k.GetParams(ctx),
 		NextPoolNumber: k.GetNextPoolNumber(ctx),
 		Pools:          pools,
-		PoolShares:     poolShares,
 	}
 }

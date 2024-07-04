@@ -16,18 +16,6 @@ func (p *Pool) SetFee(v sdk.Dec) {
 	p.Fee = v
 }
 
-func (p Pool) GetTotalShares() sdk.Int {
-	return p.TotalShares
-}
-
-func (p *Pool) AddTotalShares(v sdk.Int) {
-	p.TotalShares = p.TotalShares.Add(v)
-}
-
-func (p *Pool) SubtractFromTotalShares(v sdk.Int) {
-	p.TotalShares = p.TotalShares.Sub(v)
-}
-
 func (p *Pool) AddToToken1(token1 sdk.Coin) {
 	p.Token1 = p.Token1.Add(token1)
 }
@@ -104,12 +92,6 @@ func (p Pool) Validate() error {
 	if _, err := sdk.AccAddressFromBech32(p.Creator); err != nil {
 		return err
 	}
-	if p.TotalShares.LT(sdk.ZeroInt()) {
-		return ErrInvalidLpShares
-	}
-	if (p.Token1.IsZero() && p.Token2.IsZero() && !p.TotalShares.IsZero()) || (!p.Token1.IsZero() && !p.Token2.IsZero() && p.TotalShares.IsZero()) {
-		return ErrInvalidLpShares.Wrapf("token amount and total shares should be 0 together")
-	}
 	return nil
 }
 
@@ -125,15 +107,14 @@ func GetInitialPoolShares(token1, token2 sdk.Coin) (sdk.Int, error) {
 	return initialTotalShareDec.Mul(sdk.OneDec().Quo(sdk.SmallestDec())).TruncateInt(), nil
 }
 
-func NewPool(id uint64, token1, token2 sdk.Coin, fee sdk.Dec, creator sdk.AccAddress, totalShare sdk.Int) Pool {
+func NewPool(id uint64, token1, token2 sdk.Coin, fee sdk.Dec, creator sdk.AccAddress) Pool {
 	return Pool{
-		Id:          id,
-		Name:        getPoolName(id, token1, token2),
-		Token1:      token1,
-		Token2:      token2,
-		Fee:         fee,
-		Creator:     creator.String(),
-		TotalShares: totalShare,
+		Id:      id,
+		Name:    getPoolName(id, token1, token2),
+		Token1:  token1,
+		Token2:  token2,
+		Fee:     fee,
+		Creator: creator.String(),
 	}
 }
 

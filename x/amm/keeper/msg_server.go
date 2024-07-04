@@ -26,7 +26,6 @@ func (k Keeper) CreatePool(goCtx context.Context, msg *types.MsgCreatePoolMessag
 			sdk.NewAttribute(types.AttributeKeyPoolId, strconv.FormatUint(pool.GetId(), 10)),
 			sdk.NewAttribute(types.AttributeKeyCreator, msg.From),
 			sdk.NewAttribute(types.AttributeKeyPoolAddress, pool.GetPoolAddress().String()),
-			sdk.NewAttribute(types.AttributeKeyTotalShares, pool.TotalShares.String()),
 		),
 	})
 
@@ -47,7 +46,6 @@ func (k Keeper) JoinPool(goCtx context.Context, msg *types.MsgJoinPoolMessage) (
 			types.EventLiquidityAdded,
 			sdk.NewAttribute(types.AttributeKeyPoolId, strconv.FormatUint(pool.GetId(), 10)),
 			sdk.NewAttribute(types.AttributeKeyAddress, msg.From),
-			sdk.NewAttribute(types.AttributeKeyTotalShares, pool.TotalShares.String()),
 		),
 	})
 

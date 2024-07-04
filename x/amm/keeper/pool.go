@@ -73,6 +73,31 @@ func (k Keeper) GetNextPoolNumber(ctx sdk.Context) uint64 {
 	return poolNumber
 }
 
+func (k Keeper) mintLpShares(ctx sdk.Context, amount sdk.Coin, toAddress sdk.AccAddress) error {
+	err := k.bankKeeper.MintCoins(ctx, types.ModuleName, sdk.NewCoins(amount))
+	if err != nil {
+		return err
+	}
+	err = k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, toAddress, sdk.NewCoins(amount))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (k Keeper) burnLpShares(ctx sdk.Context, amount sdk.Coin, fromAddress sdk.AccAddress) error {
+	err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, fromAddress, types.ModuleName, sdk.NewCoins(amount))
+	if err != nil {
+		return err
+	}
+	err = k.bankKeeper.BurnCoins(ctx, types.ModuleName, sdk.NewCoins(amount))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (k Keeper) createNewPool(ctx sdk.Context, creatorAddress sdk.AccAddress, tokens sdk.Coins, fee sdk.Dec) (pool types.Pool, err error) {
 
 	params := k.GetParams(ctx)
@@ -115,14 +140,12 @@ func (k Keeper) createNewPool(ctx sdk.Context, creatorAddress sdk.AccAddress, to
 		return pool, err
 	}
 
-	pool = types.NewPool(poolId, token1, token2, fee, creatorAddress, initialTotalShare)
+	pool = types.NewPool(poolId, token1, token2, fee, creatorAddress)
 
 	share := sdk.NewCoin(pool.GetPoolShareDenom(), initialTotalShare)
-	poolShare, found := k.GetPoolShare(ctx, creatorAddress)
-	if !found {
-		poolShare = types.NewPoolShare(creatorAddress, share)
-	} else {
-		poolShare.AddShare(share)
+	err = k.mintLpShares(ctx, share, creatorAddress)
+	if err != nil {
+		return types.Pool{}, err
 	}
 
 	coins := sdk.Coins{pool.Token1, pool.Token2}
@@ -132,7 +155,6 @@ func (k Keeper) createNewPool(ctx sdk.Context, creatorAddress sdk.AccAddress, to
 	}
 
 	k.SetPool(ctx, pool)
-	k.SetPoolShare(ctx, poolShare)
 	k.SetNextPoolNumber(ctx, pool.GetId()+1)
 	return pool, nil
 }
@@ -234,27 +256,26 @@ func (k Keeper) exitPool(ctx sdk.Context, poolId uint64, fromAddress sdk.AccAddr
 		return types.ErrPoolNotFound
 	}
 
-	poolShare, found := k.GetPoolShare(ctx, fromAddress)
-	if !found {
-		return types.ErrLpSharesNotFound
-	}
-
-	totalAddressShares := poolShare.GetShare(pool.GetPoolShareDenom())
-	if totalAddressShares.Equal(sdk.ZeroInt()) {
+	totalAccountShares := k.bankKeeper.GetBalance(ctx, fromAddress, pool.GetPoolShareDenom())
+	if totalAccountShares.IsZero() {
 		return types.ErrLpSharesNotFound
 	}
 
 	refundShareAmount := lpShares
 
-	if refundShareAmount.GT(totalAddressShares) {
+	if withdrawAll {
+		refundShareAmount = totalAccountShares.Amount
+	}
+
+	if refundShareAmount.GT(totalAccountShares.Amount) {
 		return types.ErrRedeemingMoreThanAllowed
 	}
 
-	if withdrawAll {
-		refundShareAmount = totalAddressShares
+	totalShares := k.bankKeeper.GetSupply(ctx, pool.GetPoolShareDenom())
+	if totalShares.Amount.IsZero() {
+		return types.ErrEmptyPool
 	}
-
-	sharesRatio := refundShareAmount.ToLegacyDec().Quo(pool.GetTotalShares().ToLegacyDec()) // divided by 0 not possible here because ErrLpSharesNotFound will happen beforehand
+	sharesRatio := refundShareAmount.ToLegacyDec().Quo(totalShares.Amount.ToLegacyDec()) // divided by 0 not possible here because ErrLpSharesNotFound will happen beforehand
 	token1Out := sdk.NewCoin(pool.GetToken1().Denom, sharesRatio.MulInt(pool.GetToken1().Amount).RoundInt())
 	token2Out := sdk.NewCoin(pool.GetToken2().Denom, sharesRatio.MulInt(pool.GetToken2().Amount).RoundInt())
 
@@ -273,11 +294,12 @@ func (k Keeper) exitPool(ctx sdk.Context, poolId uint64, fromAddress sdk.AccAddr
 		return err
 	}
 
-	pool.SubtractFromTotalShares(refundShareAmount)
-	poolShare.SubtractShare(sdk.NewCoin(pool.GetPoolShareDenom(), refundShareAmount))
-
 	k.SetPool(ctx, pool)
-	k.SetPoolShare(ctx, poolShare)
+
+	err = k.burnLpShares(ctx, sdk.NewCoin(pool.GetPoolShareDenom(), refundShareAmount), fromAddress)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -309,7 +331,12 @@ func (k Keeper) singleTokenJoinPool(ctx sdk.Context, fromAddress sdk.AccAddress,
 		return err
 	}
 
-	newShares := requiredShareRatio.MulInt(pool.TotalShares).RoundInt()
+	totalShares := k.bankKeeper.GetSupply(ctx, pool.GetPoolShareDenom())
+	if totalShares.Amount.IsZero() {
+		return types.ErrEmptyPool
+	}
+
+	newShares := requiredShareRatio.MulInt(totalShares.Amount).RoundInt()
 	if isRequiredToken2 {
 		pool.AddToToken1(token)
 		pool.AddToToken2(requiredCoin)
@@ -317,17 +344,13 @@ func (k Keeper) singleTokenJoinPool(ctx sdk.Context, fromAddress sdk.AccAddress,
 		pool.AddToToken1(requiredCoin)
 		pool.AddToToken2(token)
 	}
-	pool.AddTotalShares(newShares)
 	k.SetPool(ctx, pool)
 
 	share := sdk.NewCoin(pool.GetPoolShareDenom(), newShares)
-	poolShare, found := k.GetPoolShare(ctx, fromAddress)
-	if !found {
-		poolShare = types.NewPoolShare(fromAddress, share)
-	} else {
-		poolShare.AddShare(share)
+	err = k.mintLpShares(ctx, share, fromAddress)
+	if err != nil {
+		return err
 	}
-	k.SetPoolShare(ctx, poolShare)
 
 	return nil
 }
@@ -352,16 +375,13 @@ func (k Keeper) refillEmptyPool(ctx sdk.Context, fromAddress sdk.AccAddress, poo
 		return err
 	}
 
-	pool = types.NewPool(pool.GetId(), token1, token2, pool.GetFee(), pool.GetCreatorAddress(), initialTotalShare)
+	pool = types.NewPool(pool.GetId(), token1, token2, pool.GetFee(), pool.GetCreatorAddress())
 	k.SetPool(ctx, pool)
 
 	share := sdk.NewCoin(pool.GetPoolShareDenom(), initialTotalShare)
-	poolShare, found := k.GetPoolShare(ctx, fromAddress)
-	if !found {
-		poolShare = types.NewPoolShare(fromAddress, share)
-	} else {
-		poolShare.AddShare(share)
+	err = k.mintLpShares(ctx, share, fromAddress)
+	if err != nil {
+		return err
 	}
-	k.SetPoolShare(ctx, poolShare)
 	return nil
 }
